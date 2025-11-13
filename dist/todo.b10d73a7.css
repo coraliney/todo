@@ -1,5 +1,6 @@
 body {
-  background: #f5f5f5;
+  color: #fff;
+  background: linear-gradient(135deg, #ffe0e0, #e0ffe0, #e0f0ff);
   flex-direction: column;
   justify-content: center;
   align-items: center;
@@ -8,26 +9,54 @@ body {
   display: flex;
 }
 
+@keyframes gradientShift {
+  0% {
+    background-position: 0%;
+  }
+
+  50% {
+    background-position: 100%;
+  }
+
+  100% {
+    background-position: 0%;
+  }
+}
+
 h1 {
   text-align: center;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 2px 2px 4px #0003;
-  background: linear-gradient(90deg, #fdad00, #75733f);
-  -webkit-background-clip: text;
-  margin: 30px 0 20px;
+  color: #ff6b6b;
+  text-shadow: 0 0 5px #ff6b6b, 0 0 10px #ff6b6b;
   font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 2.5rem;
+  font-size: 3rem;
+  animation: 3s linear infinite shadowWave;
+}
+
+@keyframes shadowWave {
+  0%, 100% {
+    text-shadow: 0 0 5px #860000, 0 0 10px #470e0e;
+  }
+
+  50% {
+    text-shadow: 0 0 15px #ff6b6b, 0 0 30px #ff6b6b;
+  }
 }
 
 #klarLista, #listan {
-  border-radius: 12px;
-  max-width: 250px;
+  border-radius: 2px;
+  width: 350px;
   margin: 10px;
   padding: 0;
   font-family: Segoe UI, Tahoma, Geneva, Verdana, sans-serif;
   list-style: none;
+  transition: transform .2s, box-shadow .2s;
   overflow: hidden;
-  box-shadow: 0 4px 8px #0000001a;
+  box-shadow: 0 8px 20px #00000026;
+}
+
+#klarLista:hover, #listan:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 25px #0003;
 }
 
 #klarLista {
@@ -41,16 +70,29 @@ h1 {
 }
 
 .flexar {
-  border-bottom: 1px solid #fff3;
+  cursor: pointer;
+  border-bottom: 2px solid #fff3;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 15px;
-  transition: background .3s;
+  padding: 12px 15px;
+  font-size: 16px;
+  transition: all .2s;
   display: flex;
 }
 
 .flexar:hover {
-  background: #ffffff1a;
+  background: #ffffff26;
+}
+
+.flexar i {
+  color: #fff;
+  margin-left: 10px;
+  transition: transform .2s, color .2s;
+}
+
+.flexar i:hover {
+  color: #fffa;
+  transform: scale(1.2);
 }
 
 .flexar:last-child {

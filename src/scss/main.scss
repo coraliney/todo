@@ -1,34 +1,54 @@
 body {
   display: flex;
+  color: rgb(255, 255, 255);
   flex-direction: column;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
   margin: 0;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #ffe0e0, #e0ffe0, #e0f0ff);
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 h1 {
   text-align: center;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  font-size: 2.5rem;
-  margin: 30px 0 20px 0;
-  background: linear-gradient(90deg, #fdad00, #75733f);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+  font-size: 3rem;
+  color: #ff6b6b;
+  text-shadow: 0 0 5px #ff6b6b, 0 0 10px #ff6b6b;
+  animation: shadowWave 3s infinite linear;
+}
+
+@keyframes shadowWave {
+  0%, 100% {
+    text-shadow: 0 0 5px #860000, 0 0 10px #470e0e;
+  }
+  50% {
+    text-shadow: 0 0 15px #ff6b6b, 0 0 30px #ff6b6b;
+  }
 }
 
 #klarLista,
 #listan {
-  border-radius: 12px;
-  max-width: 250px;
+  border-radius: 2px;
+  width: 350px;
   margin: 10px;
   padding: 0;
   list-style: none;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
   overflow: hidden;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  transition: transform 0.2s, box-shadow 0.2s;
+  
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 25px rgba(0,0,0,0.2);
+  }
 }
 
 #klarLista {
@@ -45,12 +65,25 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 15px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  transition: background 0.3s;
+  padding: 12px 15px;
+  font-size: 16px;
+  border-bottom: 2px solid rgba(255,255,255,0.2);
+  cursor: pointer;
+  transition: all 0.2s;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255,255,255,0.15);
+  }
+
+  i {
+    margin-left: 10px;
+    color: white;
+    transition: transform 0.2s, color 0.2s;
+
+    &:hover {
+      transform: scale(1.2);
+      color: #fffa;
+    }
   }
 }
 
