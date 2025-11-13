@@ -16,6 +16,8 @@ import {
 import {validatePackageName} from '../src/ParcelConfig.schema';
 import {DEFAULT_OPTIONS, relative} from './test-utils';
 import {toProjectPath} from '../src/projectPath';
+import json5 from 'json5';
+import fs from 'fs';
 
 describe('ParcelConfigRequest', () => {
   describe('validatePackageName', () => {
@@ -77,6 +79,15 @@ describe('ParcelConfigRequest', () => {
         'transform',
         'transformers',
       );
+    });
+
+    it('should succeed on a local package', () => {
+      validatePackageName(
+        './parcel-transform-bar',
+        'transform',
+        'transformers',
+      );
+      validatePackageName('./bar', 'transform', 'transformers');
     });
   });
 
@@ -300,9 +311,12 @@ describe('ParcelConfigRequest', () => {
     });
 
     it('should throw error on empty config file', () => {
-      assert.throws(() => {
-        validateConfigFile({}, '.parcelrc');
-      }, /.parcelrc can't be empty/);
+      assert.throws(
+        () => {
+          validateConfigFile({}, '.parcelrc');
+        },
+        {name: 'Error', message: ".parcelrc can't be empty"},
+      );
     });
   });
 
@@ -684,7 +698,7 @@ describe('ParcelConfigRequest', () => {
       let defaultConfigPath = require.resolve('@parcel/config-default');
       let defaultConfig = await processConfig(
         {
-          ...require('@parcel/config-default'),
+          ...json5.parse(fs.readFileSync(defaultConfigPath, 'utf8')),
           filePath: defaultConfigPath,
         },
         DEFAULT_OPTIONS,

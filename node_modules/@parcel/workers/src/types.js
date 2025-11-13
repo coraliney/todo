@@ -1,6 +1,6 @@
 // @flow
 import type {Diagnostic} from '@parcel/diagnostic';
-import type {FilePath} from '@parcel/types';
+import type {FilePath} from '@parcel/types-internal';
 
 export type LocationCallRequest = {|
   args: $ReadOnlyArray<mixed>,
@@ -65,4 +65,4 @@ export interface ChildImpl {
   send(data: WorkerMessage): void;
 }
 
-export type BackendType = 'threads' | 'process';
+export type BackendType = 'threads' | 'process' | 'web';

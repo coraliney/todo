@@ -1,14 +1,59 @@
-#klarLista {
-  border: 2px solid gray;
-  background-color: green;
+body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  background: #f5f5f5;
 }
+
+h1 {
+  text-align: center;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 2.5rem;
+  margin: 30px 0 20px 0;
+  background: linear-gradient(90deg, #fdad00, #75733f);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+}
+
+#klarLista,
 #listan {
-  border: 2px solid gray;
-  background-color: red;
+  border-radius: 12px;
+  max-width: 250px;
+  margin: 10px;
+  padding: 0;
+  list-style: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#klarLista {
+  background: linear-gradient(135deg, #90d099, #96eed1);
+  border: none;
+}
+
+#listan {
+  background: linear-gradient(135deg, #f98787, #ffd0d0);
+  border: none;
 }
 
 .flexar {
   display: flex;
   justify-content: space-between;
-  padding: 2px;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  transition: background 0.3s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.flexar:last-child {
+  border-bottom: none;
 }

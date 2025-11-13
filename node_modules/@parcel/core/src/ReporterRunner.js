@@ -12,7 +12,6 @@ import {
   NamedBundle,
 } from './public/Bundle';
 import WorkerFarm, {bus} from '@parcel/workers';
-import ParcelConfig from './ParcelConfig';
 import logger, {
   patchConsole,
   unpatchConsole,
@@ -21,29 +20,36 @@ import logger, {
 } from '@parcel/logger';
 import PluginOptions from './public/PluginOptions';
 import BundleGraph from './BundleGraph';
+import {tracer, PluginTracer} from '@parcel/profiler';
+import {anyToDiagnostic} from '@parcel/diagnostic';
 
 type Opts = {|
-  config: ParcelConfig,
   options: ParcelOptions,
+  reporters: Array<LoadedPlugin<Reporter>>,
   workerFarm: WorkerFarm,
 |};
 
+const instances: Set<ReporterRunner> = new Set();
+
 export default class ReporterRunner {
   workerFarm: WorkerFarm;
-  config: ParcelConfig;
+  errors: Error[];
   options: ParcelOptions;
   pluginOptions: PluginOptions;
   reporters: Array<LoadedPlugin<Reporter>>;
 
   constructor(opts: Opts) {
-    this.config = opts.config;
+    this.errors = [];
     this.options = opts.options;
+    this.reporters = opts.reporters;
     this.workerFarm = opts.workerFarm;
     this.pluginOptions = new PluginOptions(this.options);
 
     logger.onLog(event => this.report(event));
+    tracer.onTrace(event => this.report(event));
 
     bus.on('reporterEvent', this.eventHandler);
+    instances.add(this);
 
     if (this.options.shouldPatchConsole) {
       patchConsole();
@@ -80,33 +86,50 @@ export default class ReporterRunner {
     this.report(event);
   };
 
-  async report(event: ReporterEvent) {
-    // We should catch all errors originating from reporter plugins to prevent infinite loops
-    try {
-      let reporters = this.reporters;
-      if (!reporters) {
-        this.reporters = await this.config.getReporters();
-        reporters = this.reporters;
-      }
-
-      for (let reporter of this.reporters) {
-        try {
-          await reporter.plugin.report({
-            event,
-            options: this.pluginOptions,
-            logger: new PluginLogger({origin: reporter.name}),
-          });
-        } catch (reportError) {
+  async report(unsanitisedEvent: ReporterEvent) {
+    let event: ReporterEvent = unsanitisedEvent;
+    if (event.diagnostics) {
+      // Sanitise input before passing to reporters
+      // $FlowFixMe too complex to narrow down by type
+      event = {
+        ...event,
+        diagnostics: anyToDiagnostic(event.diagnostics),
+      };
+    }
+    for (let reporter of this.reporters) {
+      let measurement;
+      try {
+        // To avoid an infinite loop we don't measure trace events, as they'll
+        // result in another trace!
+        if (event.type !== 'trace') {
+          measurement = tracer.createMeasurement(reporter.name, 'reporter');
+        }
+        await reporter.plugin.report({
+          // $FlowFixMe
+          event,
+          options: this.pluginOptions,
+          logger: new PluginLogger({origin: reporter.name}),
+          tracer: new PluginTracer({
+            origin: reporter.name,
+            category: 'reporter',
+          }),
+        });
+      } catch (reportError) {
+        if (event.type !== 'buildSuccess') {
+          // This will be captured by consumers
           INTERNAL_ORIGINAL_CONSOLE.error(reportError);
         }
+
+        this.errors.push(reportError);
+      } finally {
+        measurement && measurement.end();
       }
-    } catch (err) {
-      INTERNAL_ORIGINAL_CONSOLE.error(err);
     }
   }
 
   dispose() {
     bus.off('reporterEvent', this.eventHandler);
+    instances.delete(this);
   }
 }
 
@@ -130,6 +153,6 @@ export function reportWorker(workerApi: WorkerApi, event: ReporterEvent) {
   bus.emit('reporterEvent', event);
 }
 
-export function report(event: ReporterEvent) {
-  bus.emit('reporterEvent', event);
+export async function report(event: ReporterEvent): Promise<void> {
+  await Promise.all([...instances].map(instance => instance.report(event)));
 }

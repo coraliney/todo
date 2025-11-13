@@ -7,7 +7,7 @@ import path from 'path';
 import clone from 'clone';
 import json5 from 'json5';
 import {parse as toml} from '@iarna/toml';
-import LRU from 'lru-cache';
+import {LRUCache} from 'lru-cache';
 
 export type ConfigOutput = {|
   config: ConfigResult,
@@ -19,7 +19,7 @@ export type ConfigOptions = {|
   parser?: string => any,
 |};
 
-const configCache = new LRU<FilePath, ConfigOutput>({max: 500});
+const configCache = new LRUCache<FilePath, ConfigOutput>({max: 500});
 const resolveCache = new Map();
 
 export function resolveConfig(
@@ -74,7 +74,7 @@ export async function loadConfig(
       if (extname === 'js' || extname === 'cjs') {
         let output = {
           // $FlowFixMe
-          config: clone(require(configFile)),
+          config: clone(module.require(configFile)),
           files: [{filePath: configFile}],
         };
 
@@ -82,55 +82,7 @@ export async function loadConfig(
         return output;
       }
 
-      let configContent = await fs.readFile(configFile, 'utf8');
-
-      let config;
-      if (parse === false) {
-        config = configContent;
-      } else {
-        let parse = opts?.parser ?? getParser(extname);
-        try {
-          config = parse(configContent);
-        } catch (e) {
-          if (extname !== '' && extname !== 'json') {
-            throw e;
-          }
-
-          let pos = {
-            line: e.lineNumber,
-            column: e.columnNumber,
-          };
-
-          throw new ThrowableDiagnostic({
-            diagnostic: {
-              message: `Failed to parse ${path.basename(configFile)}`,
-              origin: '@parcel/utils',
-              codeFrames: [
-                {
-                  language: 'json5',
-                  filePath: configFile,
-                  code: configContent,
-                  codeHighlights: [
-                    {
-                      start: pos,
-                      end: pos,
-                      message: e.message,
-                    },
-                  ],
-                },
-              ],
-            },
-          });
-        }
-      }
-
-      let output = {
-        config,
-        files: [{filePath: configFile}],
-      };
-
-      configCache.set(String(parse) + configFile, output);
-      return output;
+      return readConfig(fs, configFile, opts);
     } catch (err) {
       if (err.code === 'MODULE_NOT_FOUND' || err.code === 'ENOENT') {
         return null;
@@ -144,9 +96,79 @@ export async function loadConfig(
 }
 
 loadConfig.clear = () => {
-  configCache.reset();
+  configCache.clear();
   resolveCache.clear();
 };
+
+export async function readConfig(
+  fs: FileSystem,
+  configFile: FilePath,
+  opts: ?ConfigOptions,
+): Promise<ConfigOutput | null> {
+  let parse = opts?.parse ?? true;
+  let cachedOutput = configCache.get(String(parse) + configFile);
+  if (cachedOutput) {
+    return cachedOutput;
+  }
+
+  try {
+    let configContent = await fs.readFile(configFile, 'utf8');
+    let config;
+    if (parse === false) {
+      config = configContent;
+    } else {
+      let extname = path.extname(configFile).slice(1);
+      let parse = opts?.parser ?? getParser(extname);
+      try {
+        config = parse(configContent);
+      } catch (e) {
+        if (extname !== '' && extname !== 'json') {
+          throw e;
+        }
+
+        let pos = {
+          line: e.lineNumber,
+          column: e.columnNumber,
+        };
+
+        throw new ThrowableDiagnostic({
+          diagnostic: {
+            message: `Failed to parse ${path.basename(configFile)}`,
+            origin: '@parcel/utils',
+            codeFrames: [
+              {
+                language: 'json5',
+                filePath: configFile,
+                code: configContent,
+                codeHighlights: [
+                  {
+                    start: pos,
+                    end: pos,
+                    message: e.message,
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }
+    }
+
+    let output = {
+      config,
+      files: [{filePath: configFile}],
+    };
+
+    configCache.set(String(parse) + configFile, output);
+    return output;
+  } catch (err) {
+    if (err.code === 'MODULE_NOT_FOUND' || err.code === 'ENOENT') {
+      return null;
+    }
+
+    throw err;
+  }
+}
 
 function getParser(extname) {
   switch (extname) {

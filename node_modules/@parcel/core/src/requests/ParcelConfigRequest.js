@@ -27,6 +27,7 @@ import ThrowableDiagnostic, {
   generateJSONCodeHighlights,
   escapeMarkdown,
   md,
+  errorToDiagnostic,
 } from '@parcel/diagnostic';
 import {parse} from 'json5';
 import path from 'path';
@@ -37,6 +38,7 @@ import {optionsProxy} from '../utils';
 import ParcelConfig from '../ParcelConfig';
 import {createBuildCache} from '../buildCache';
 import {toProjectPath} from '../projectPath';
+import {requestTypes} from '../RequestTracker';
 
 type ConfigMap<K, V> = {[K]: V, ...};
 
@@ -45,17 +47,19 @@ export type ConfigAndCachePath = {|
   cachePath: string,
 |};
 
-type RunOpts = {|
+type RunOpts<TResult> = {|
   input: null,
-  ...StaticRunOpts,
+  ...StaticRunOpts<TResult>,
 |};
 
 export type ParcelConfigRequest = {|
   id: string,
-  type: string,
+  type: typeof requestTypes.parcel_config_request,
   input: null,
-  run: RunOpts => Async<ConfigAndCachePath>,
+  run: (RunOpts<ParcelConfigRequestResult>) => Async<ParcelConfigRequestResult>,
 |};
+
+export type ParcelConfigRequestResult = ConfigAndCachePath;
 
 type ParcelConfigChain = {|
   config: ProcessedParcelConfig,
@@ -67,8 +71,8 @@ const type = 'parcel_config_request';
 export default function createParcelConfigRequest(): ParcelConfigRequest {
   return {
     id: type,
-    type,
-    async run({api, options}: RunOpts): Promise<ConfigAndCachePath> {
+    type: requestTypes[type],
+    async run({api, options}) {
       let {
         config,
         extendedFiles,
@@ -466,7 +470,7 @@ export async function processConfigChain(
 
     if (errors.length > 0) {
       throw new ThrowableDiagnostic({
-        diagnostic: errors.flatMap(e => e.diagnostics),
+        diagnostic: errors.flatMap(e => e.diagnostics ?? errorToDiagnostic(e)),
       });
     }
   }
@@ -573,7 +577,16 @@ export function validateConfigFile(
   config: RawParcelConfig | ResolvedParcelConfigFile,
   relativePath: FilePath,
 ) {
-  validateNotEmpty(config, relativePath);
+  try {
+    validateNotEmpty(config, relativePath);
+  } catch (e) {
+    throw new ThrowableDiagnostic({
+      diagnostic: {
+        message: e.message,
+        origin: '@parcel/core',
+      },
+    });
+  }
 
   validateSchema.diagnostic(
     ParcelConfigSchema,

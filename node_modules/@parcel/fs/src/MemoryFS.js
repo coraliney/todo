@@ -1,7 +1,12 @@
 // @flow
 
-import type {FileSystem, FileOptions, ReaddirOptions, Encoding} from './types';
-import type {FilePath} from '@parcel/types';
+import type {
+  FilePath,
+  FileSystem,
+  FileOptions,
+  ReaddirOptions,
+  Encoding,
+} from '@parcel/types-internal';
 import type {
   Event,
   Options as WatcherOptions,
@@ -59,13 +64,13 @@ export class MemoryFS implements FileSystem {
 
   constructor(workerFarm: WorkerFarm) {
     this.farm = workerFarm;
-    this.dirs = new Map([['/', new Directory()]]);
+    this._cwd = path.resolve(path.sep);
+    this.dirs = new Map([[this._cwd, new Directory()]]);
     this.files = new Map();
     this.symlinks = new Map();
     this.watchers = new Map();
     this.events = [];
     this.id = id++;
-    this._cwd = '/';
     this._workerHandles = [];
     this._eventQueue = [];
     instances.set(this.id, this);
@@ -134,25 +139,36 @@ export class MemoryFS implements FileSystem {
   }
 
   _normalizePath(filePath: FilePath, realpath: boolean = true): FilePath {
-    filePath = path.resolve(this.cwd(), filePath);
-
-    // get realpath by following symlinks
-    if (realpath) {
-      let {root, dir, base} = path.parse(filePath);
-      let parts = dir.slice(root.length).split(path.sep).concat(base);
-      let res = root;
-      for (let part of parts) {
-        res = path.join(res, part);
-        let symlink = this.symlinks.get(res);
-        if (symlink) {
-          res = symlink;
-        }
-      }
-
-      return res;
+    filePath = path.normalize(filePath);
+    if (!filePath.startsWith(this.cwd())) {
+      filePath = path.resolve(this.cwd(), filePath);
     }
 
-    return filePath;
+    // get realpath by following symlinks
+    let {root, dir, base} = path.parse(filePath);
+    let parts = dir.slice(root.length).split(path.sep).concat(base);
+
+    // If the realpath option is not true, don't follow the final link
+    let last;
+    if (!realpath) {
+      last = parts[parts.length - 1];
+      parts = parts.slice(0, -1);
+    }
+
+    let res = root;
+    for (let part of parts) {
+      res = path.join(res, part);
+      let symlink = this.symlinks.get(res);
+      if (symlink) {
+        res = symlink;
+      }
+    }
+
+    if (last) {
+      res = path.join(res, last);
+    }
+
+    return res;
   }
 
   async writeFile(
@@ -238,16 +254,48 @@ export class MemoryFS implements FileSystem {
     return this.statSync(filePath);
   }
 
+  lstatSync(filePath: FilePath): Stat {
+    filePath = this._normalizePath(filePath, false);
+
+    if (this.symlinks.has(filePath)) {
+      let stat = new Stat();
+      stat.mode = S_IFLNK;
+      return stat;
+    }
+
+    let dir = this.dirs.get(filePath);
+    if (dir) {
+      return dir.stat();
+    }
+
+    let file = this.files.get(filePath);
+    if (file == null) {
+      throw new FSError('ENOENT', filePath, 'does not exist');
+    }
+
+    return file.stat();
+  }
+
+  // eslint-disable-next-line require-await
+  async lstat(filePath: FilePath): Promise<Stat> {
+    return this.lstatSync(filePath);
+  }
+
   readdirSync(dir: FilePath, opts?: ReaddirOptions): any {
     dir = this._normalizePath(dir);
     if (!this.dirs.has(dir)) {
       throw new FSError('ENOENT', dir, 'does not exist');
     }
 
-    dir += path.sep;
+    if (!dir.endsWith(path.sep)) {
+      dir += path.sep;
+    }
 
     let res = [];
     for (let [filePath, entry] of this.dirs) {
+      if (filePath === dir) {
+        continue;
+      }
       if (
         filePath.startsWith(dir) &&
         filePath.indexOf(path.sep, dir.length) === -1
@@ -496,6 +544,19 @@ export class MemoryFS implements FileSystem {
     return this.realpathSync(filePath);
   }
 
+  readlinkSync(filePath: FilePath): FilePath {
+    let symlink = this.symlinks.get(filePath);
+    if (!symlink) {
+      throw new FSError('EINVAL', filePath, 'is not a symlink');
+    }
+    return symlink;
+  }
+
+  // eslint-disable-next-line require-await
+  async readlink(filePath: FilePath): Promise<FilePath> {
+    return this.readlinkSync(filePath);
+  }
+
   async symlink(target: FilePath, path: FilePath) {
     target = this._normalizePath(target);
     path = this._normalizePath(path);
@@ -659,7 +720,7 @@ class Watcher {
   }
 }
 
-class FSError extends Error {
+export class FSError extends Error {
   code: string;
   path: FilePath;
   constructor(code: string, path: FilePath, message: string) {
@@ -738,6 +799,7 @@ class WriteStream extends Writable {
 const S_IFREG = 0o100000;
 const S_IFDIR = 0o040000;
 const S_IFLNK = 0o120000;
+const S_IFMT = 0o170000;
 
 class Entry {
   mode: number;
@@ -772,49 +834,51 @@ class Entry {
   }
 
   stat(): Stat {
-    return new Stat(this);
+    return Stat.fromEntry(this);
   }
 }
 
 class Stat {
   dev: number = 0;
   ino: number = 0;
-  mode: number;
+  mode: number = 0;
   nlink: number = 0;
   uid: number = 0;
   gid: number = 0;
   rdev: number = 0;
-  size: number;
+  size: number = 0;
   blksize: number = 0;
   blocks: number = 0;
-  atimeMs: number;
-  mtimeMs: number;
-  ctimeMs: number;
-  birthtimeMs: number;
-  atime: Date;
-  mtime: Date;
-  ctime: Date;
-  birthtime: Date;
+  atimeMs: number = 0;
+  mtimeMs: number = 0;
+  ctimeMs: number = 0;
+  birthtimeMs: number = 0;
+  atime: Date = new Date();
+  mtime: Date = new Date();
+  ctime: Date = new Date();
+  birthtime: Date = new Date();
 
-  constructor(entry: Entry) {
-    this.mode = entry.mode;
-    this.size = entry.getSize();
-    this.atimeMs = entry.atime;
-    this.mtimeMs = entry.mtime;
-    this.ctimeMs = entry.ctime;
-    this.birthtimeMs = entry.birthtime;
-    this.atime = new Date(entry.atime);
-    this.mtime = new Date(entry.mtime);
-    this.ctime = new Date(entry.ctime);
-    this.birthtime = new Date(entry.birthtime);
+  static fromEntry(entry: Entry): Stat {
+    let stat = new Stat();
+    stat.mode = entry.mode;
+    stat.size = entry.getSize();
+    stat.atimeMs = entry.atime;
+    stat.mtimeMs = entry.mtime;
+    stat.ctimeMs = entry.ctime;
+    stat.birthtimeMs = entry.birthtime;
+    stat.atime = new Date(entry.atime);
+    stat.mtime = new Date(entry.mtime);
+    stat.ctime = new Date(entry.ctime);
+    stat.birthtime = new Date(entry.birthtime);
+    return stat;
   }
 
   isFile(): boolean {
-    return Boolean(this.mode & S_IFREG);
+    return (this.mode & S_IFREG) === S_IFREG;
   }
 
   isDirectory(): boolean {
-    return Boolean(this.mode & S_IFDIR);
+    return (this.mode & S_IFDIR) === S_IFDIR;
   }
 
   isBlockDevice(): boolean {
@@ -826,7 +890,7 @@ class Stat {
   }
 
   isSymbolicLink(): boolean {
-    return false;
+    return (this.mode & S_IFMT) === S_IFLNK;
   }
 
   isFIFO(): boolean {
@@ -848,11 +912,11 @@ class Dirent {
   }
 
   isFile(): boolean {
-    return Boolean(this.#mode & S_IFREG);
+    return (this.#mode & S_IFMT) === S_IFREG;
   }
 
   isDirectory(): boolean {
-    return Boolean(this.#mode & S_IFDIR);
+    return (this.#mode & S_IFMT) === S_IFDIR;
   }
 
   isBlockDevice(): boolean {
@@ -864,7 +928,7 @@ class Dirent {
   }
 
   isSymbolicLink(): boolean {
-    return Boolean(this.#mode & S_IFLNK);
+    return (this.#mode & S_IFMT) === S_IFLNK;
   }
 
   isFIFO(): boolean {
@@ -876,7 +940,7 @@ class Dirent {
   }
 }
 
-class File extends Entry {
+export class File extends Entry {
   buffer: Buffer;
   constructor(buffer: Buffer, mode: number) {
     super(S_IFREG | mode);
@@ -904,18 +968,31 @@ class Directory extends Entry {
   }
 }
 
-function makeShared(contents: Buffer | string): Buffer {
+export function makeShared(contents: Buffer | string): Buffer {
   if (typeof contents !== 'string' && contents.buffer instanceof SharedBuffer) {
     return contents;
   }
 
-  let length = Buffer.byteLength(contents);
+  let contentsBuffer: Buffer | string = contents;
+  // $FlowFixMe
+  if (process.browser) {
+    // For the polyfilled buffer module, it's faster to always convert once so that the subsequent
+    // operations are fast (.byteLength and using .set instead of .write)
+    contentsBuffer =
+      contentsBuffer instanceof Buffer
+        ? contentsBuffer
+        : Buffer.from(contentsBuffer);
+  }
+
+  let length = Buffer.byteLength(contentsBuffer);
   let shared = new SharedBuffer(length);
   let buffer = Buffer.from(shared);
-  if (typeof contents === 'string') {
-    buffer.write(contents);
-  } else {
-    buffer.set(contents);
+  if (length > 0) {
+    if (typeof contentsBuffer === 'string') {
+      buffer.write(contentsBuffer);
+    } else {
+      buffer.set(contentsBuffer);
+    }
   }
 
   return buffer;

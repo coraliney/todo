@@ -10,6 +10,7 @@ import {relativePath} from '@parcel/utils';
 import {NodePackageManager} from '@parcel/package-manager';
 import {createEnvironment} from '../src/Environment';
 import {toProjectPath} from '../src/projectPath';
+import {DEFAULT_FEATURE_FLAGS} from '@parcel/feature-flags';
 
 let cacheDir = tempy.directory();
 export let cache: FSCache = new FSCache(outputFS, cacheDir);
@@ -17,6 +18,10 @@ cache.ensure();
 
 export const DEFAULT_OPTIONS: ParcelOptions = {
   cacheDir: path.join(__dirname, '.parcel-cache'),
+  parcelVersion: '',
+  watchDir: __dirname,
+  watchIgnore: undefined,
+  watchBackend: undefined,
   entries: [],
   logLevel: 'info',
   targets: undefined,
@@ -25,11 +30,15 @@ export const DEFAULT_OPTIONS: ParcelOptions = {
   hmrOptions: undefined,
   shouldContentHash: true,
   shouldBuildLazily: false,
+  lazyIncludes: [],
+  lazyExcludes: [],
+  shouldBundleIncrementally: true,
   serveOptions: false,
   mode: 'development',
   env: {},
   shouldDisableCache: false,
   shouldProfile: false,
+  shouldTrace: false,
   inputFS,
   outputFS,
   cache,
@@ -43,6 +52,9 @@ export const DEFAULT_OPTIONS: ParcelOptions = {
     publicUrl: '/',
     distDir: undefined,
     sourceMaps: false,
+  },
+  featureFlags: {
+    ...DEFAULT_FEATURE_FLAGS,
   },
 };
 

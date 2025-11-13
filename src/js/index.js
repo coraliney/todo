@@ -2,10 +2,10 @@ import { Djur } from "./modules/class";
 
 let todo = []; //min lista/array
 
-todo.push(new Djur("mata djur", false, "zebra")); //listans innehåll; mina objekt med klass- trycks in i listan
-todo.push(new Djur("borsta djur", true, "lejon")); //listans innehåll; mina objekt med klass- trycks in i listan
-todo.push(new Djur("promenera med djur", false, "antilop")); //listans innehåll; mina objekt klass- trycks in i listan
-todo.push(new Djur("springa med djur", false, "skalpadda")); //listans innehåll; mina objekt klass- trycks in i listan
+todo.push(new Djur("feed animal", false, "zebra")); //listans innehåll; mina objekt med klass- trycks in i listan
+todo.push(new Djur("pet animal", true, "lejon")); //listans innehåll; mina objekt med klass- trycks in i listan
+todo.push(new Djur("walk with animal", false, "antilop")); //listans innehåll; mina objekt klass- trycks in i listan
+todo.push(new Djur("run with animals", false, "skalpadda")); //listans innehåll; mina objekt klass- trycks in i listan
 
 let container = document.getElementById("container"); //hämtar min div, från html:n för att lägga "klarlista" i min div
 let listan = document.getElementById("listan"); //detta är min ul från html:n som jag hämtat - false

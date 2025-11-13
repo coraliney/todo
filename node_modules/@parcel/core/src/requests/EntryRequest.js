@@ -1,6 +1,6 @@
 // @flow strict-local
 
-import type {Async, FilePath, PackageJSON} from '@parcel/types';
+import type {Async, FilePath, PackageJSON, Glob} from '@parcel/types';
 import type {StaticRunOpts} from '../RequestTracker';
 import type {Entry, InternalFile, ParcelOptions} from '../types';
 import type {FileSystem} from '@parcel/fs';
@@ -18,6 +18,7 @@ import ThrowableDiagnostic, {
 } from '@parcel/diagnostic';
 import path from 'path';
 import {parse, type Mapping} from '@mischnic/json-sourcemap';
+import {requestTypes} from '../RequestTracker';
 import {
   type ProjectPath,
   fromProjectPath,
@@ -25,21 +26,22 @@ import {
   toProjectPath,
 } from '../projectPath';
 
-type RunOpts = {|
+type RunOpts<TResult> = {|
   input: ProjectPath,
-  ...StaticRunOpts,
+  ...StaticRunOpts<TResult>,
 |};
 
 export type EntryRequest = {|
   id: string,
-  +type: 'entry_request',
-  run: RunOpts => Async<EntryResult>,
+  +type: typeof requestTypes.entry_request,
+  run: (RunOpts<EntryRequestResult>) => Async<EntryRequestResult>,
   input: ProjectPath,
 |};
 
-export type EntryResult = {|
+export type EntryRequestResult = {|
   entries: Array<Entry>,
   files: Array<InternalFile>,
+  globs: Array<Glob>,
 |};
 
 const type = 'entry_request';
@@ -47,13 +49,13 @@ const type = 'entry_request';
 export default function createEntryRequest(input: ProjectPath): EntryRequest {
   return {
     id: `${type}:${fromProjectPathRelative(input)}`,
-    type,
+    type: requestTypes.entry_request,
     run,
     input,
   };
 }
 
-async function run({input, api, options}: RunOpts): Promise<EntryResult> {
+async function run({input, api, options}): Promise<EntryRequestResult> {
   let entryResolver = new EntryResolver(options);
   let filePath = fromProjectPath(options.projectRoot, input);
   let result = await entryResolver.resolveEntry(filePath);
@@ -67,8 +69,10 @@ async function run({input, api, options}: RunOpts): Promise<EntryResult> {
 
   // If the entry specifier is a glob, add a glob node so
   // we invalidate when a new file matches.
-  if (isGlob(filePath)) {
-    api.invalidateOnFileCreate({glob: input});
+  for (let glob of result.globs) {
+    api.invalidateOnFileCreate({
+      glob: toProjectPath(options.projectRoot, glob),
+    });
   }
 
   // Invalidate whenever an entry is deleted.
@@ -153,8 +157,18 @@ export class EntryResolver {
     this.options = options;
   }
 
-  async resolveEntry(entry: FilePath): Promise<EntryResult> {
-    if (isGlob(entry)) {
+  async resolveEntry(entry: FilePath): Promise<EntryRequestResult> {
+    let stat;
+    try {
+      stat = await this.options.inputFS.stat(entry);
+    } catch (err) {
+      if (!isGlob(entry)) {
+        throw new ThrowableDiagnostic({
+          diagnostic: {
+            message: md`Entry ${entry} does not exist`,
+          },
+        });
+      }
       let files = await glob(entry, this.options.inputFS, {
         absolute: true,
         onlyFiles: false,
@@ -166,20 +180,10 @@ export class EntryResolver {
         (p, res) => ({
           entries: p.entries.concat(res.entries),
           files: p.files.concat(res.files),
+          globs: p.globs.concat(res.globs),
         }),
-        {entries: [], files: []},
+        {entries: [], files: [], globs: [entry]},
       );
-    }
-
-    let stat;
-    try {
-      stat = await this.options.inputFS.stat(entry);
-    } catch (err) {
-      throw new ThrowableDiagnostic({
-        diagnostic: {
-          message: md`Entry ${entry} does not exist`,
-        },
-      });
     }
 
     if (stat.isDirectory()) {
@@ -193,6 +197,7 @@ export class EntryResolver {
             filePath: toProjectPath(this.options.projectRoot, filePath),
           },
         ];
+        let globs = [];
 
         let targetsWithSources = 0;
         if (pkg.targets) {
@@ -204,35 +209,47 @@ export class EntryResolver {
                 ? target.source
                 : [target.source];
               let i = 0;
-              for (let relativeSource of targetSources) {
-                let source = path.join(entry, relativeSource);
+              for (let source of targetSources) {
+                let sources;
+                if (isGlob(source)) {
+                  globs.push(source);
+                  sources = await glob(source, this.options.inputFS, {
+                    onlyFiles: true,
+                    cwd: entry,
+                  });
+                } else {
+                  sources = [source];
+                }
                 let keyPath = `/targets/${targetName}/source${
                   Array.isArray(target.source) ? `/${i}` : ''
                 }`;
-                await assertFile(
-                  this.options.inputFS,
-                  entry,
-                  relativeSource,
-                  filePath,
-                  keyPath,
-                  this.options,
-                );
+                for (let relativeSource of sources) {
+                  let source = path.join(entry, relativeSource);
+                  await assertFile(
+                    this.options.inputFS,
+                    entry,
+                    relativeSource,
+                    filePath,
+                    keyPath,
+                    this.options,
+                  );
 
-                entries.push({
-                  filePath: toProjectPath(this.options.projectRoot, source),
-                  packagePath: toProjectPath(this.options.projectRoot, entry),
-                  target: targetName,
-                  loc: {
-                    filePath: toProjectPath(
-                      this.options.projectRoot,
-                      pkg.filePath,
-                    ),
-                    ...getJSONSourceLocation(
-                      pkg.map.pointers[keyPath],
-                      'value',
-                    ),
-                  },
-                });
+                  entries.push({
+                    filePath: toProjectPath(this.options.projectRoot, source),
+                    packagePath: toProjectPath(this.options.projectRoot, entry),
+                    target: targetName,
+                    loc: {
+                      filePath: toProjectPath(
+                        this.options.projectRoot,
+                        pkg.filePath,
+                      ),
+                      ...getJSONSourceLocation(
+                        pkg.map.pointers[keyPath],
+                        'value',
+                      ),
+                    },
+                  });
+                }
                 i++;
               }
             }
@@ -251,24 +268,39 @@ export class EntryResolver {
             : [pkg.source];
           let i = 0;
           for (let pkgSource of pkgSources) {
-            let source = path.join(path.dirname(filePath), pkgSource);
+            let sources;
+            if (isGlob(pkgSource)) {
+              globs.push(pkgSource);
+              sources = await glob(pkgSource, this.options.inputFS, {
+                onlyFiles: true,
+                cwd: path.dirname(filePath),
+              });
+            } else {
+              sources = [pkgSource];
+            }
             let keyPath = `/source${Array.isArray(pkg.source) ? `/${i}` : ''}`;
-            await assertFile(
-              this.options.inputFS,
-              entry,
-              pkgSource,
-              filePath,
-              keyPath,
-              this.options,
-            );
-            entries.push({
-              filePath: toProjectPath(this.options.projectRoot, source),
-              packagePath: toProjectPath(this.options.projectRoot, entry),
-              loc: {
-                filePath: toProjectPath(this.options.projectRoot, pkg.filePath),
-                ...getJSONSourceLocation(pkg.map.pointers[keyPath], 'value'),
-              },
-            });
+            for (let relativeSource of sources) {
+              let source = path.join(path.dirname(filePath), relativeSource);
+              await assertFile(
+                this.options.inputFS,
+                entry,
+                relativeSource,
+                filePath,
+                keyPath,
+                this.options,
+              );
+              entries.push({
+                filePath: toProjectPath(this.options.projectRoot, source),
+                packagePath: toProjectPath(this.options.projectRoot, entry),
+                loc: {
+                  filePath: toProjectPath(
+                    this.options.projectRoot,
+                    pkg.filePath,
+                  ),
+                  ...getJSONSourceLocation(pkg.map.pointers[keyPath], 'value'),
+                },
+              });
+            }
             i++;
           }
         }
@@ -278,6 +310,7 @@ export class EntryResolver {
           return {
             entries,
             files,
+            globs,
           };
         }
       }
@@ -304,6 +337,7 @@ export class EntryResolver {
           },
         ],
         files: [],
+        globs: [],
       };
     }
 

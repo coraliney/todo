@@ -89,8 +89,18 @@ export class FSCache implements Cache {
     return this.fs.readFile(this._getCachePath(`${key}-large`));
   }
 
-  async setLargeBlob(key: string, contents: Buffer | string): Promise<void> {
-    await this.fs.writeFile(this._getCachePath(`${key}-large`), contents);
+  async setLargeBlob(
+    key: string,
+    contents: Buffer | string,
+    options?: {|signal?: AbortSignal|},
+  ): Promise<void> {
+    await this.fs.writeFile(this._getCachePath(`${key}-large`), contents, {
+      signal: options?.signal,
+    });
+  }
+
+  async deleteLargeBlob(key: string): Promise<void> {
+    await this.fs.rimraf(this._getCachePath(`${key}-large`));
   }
 
   async get<T>(key: string): Promise<?T> {
@@ -115,6 +125,10 @@ export class FSCache implements Cache {
     } catch (err) {
       logger.error(err, '@parcel/cache');
     }
+  }
+
+  refresh(): void {
+    // NOOP
   }
 }
 

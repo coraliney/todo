@@ -95,12 +95,32 @@ export class LMDBCache implements Cache {
     return this.fs.exists(path.join(this.dir, key));
   }
 
-  getLargeBlob(key: string): Promise<Buffer> {
+  // eslint-disable-next-line require-await
+  async getLargeBlob(key: string): Promise<Buffer> {
     return this.fs.readFile(path.join(this.dir, key));
   }
 
-  async setLargeBlob(key: string, contents: Buffer | string): Promise<void> {
-    await this.fs.writeFile(path.join(this.dir, key), contents);
+  // eslint-disable-next-line require-await
+  async setLargeBlob(
+    key: string,
+    contents: Buffer | string,
+    options?: {|signal?: AbortSignal|},
+  ): Promise<void> {
+    await this.fs.writeFile(path.join(this.dir, key), contents, {
+      signal: options?.signal,
+    });
+  }
+
+  async deleteLargeBlob(key: string): Promise<void> {
+    await this.fs.rimraf(path.join(this.dir, key));
+  }
+
+  refresh(): void {
+    // Reset the read transaction for the store. This guarantees that
+    // the next read will see the latest changes to the store.
+    // Useful in scenarios where reads and writes are multi-threaded.
+    // See https://github.com/kriszyp/lmdb-js#resetreadtxn-void
+    this.store.resetReadTxn();
   }
 }
 

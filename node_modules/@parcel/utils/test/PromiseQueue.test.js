@@ -1,8 +1,8 @@
 // @flow
 import assert from 'assert';
-import randomInt from 'random-int';
 
 import PromiseQueue from '../src/PromiseQueue';
+import sinon from 'sinon';
 
 describe('PromiseQueue', () => {
   it('run() should resolve when all async functions in queue have completed', async () => {
@@ -65,11 +65,38 @@ describe('PromiseQueue', () => {
         running++;
         assert(queue._numRunning === running);
         assert(running <= maxConcurrent);
-        await Promise.resolve(randomInt(1, 10)); //sleep(randomInt(1, 10));
+        await Promise.resolve(Math.floor(Math.random() * 10) + 1);
         running--;
       }),
     );
 
     await queue.run();
+  });
+
+  it('.add() should notify subscribers', async () => {
+    const queue = new PromiseQueue();
+
+    const subscribedFn = sinon.spy();
+    queue.subscribeToAdd(subscribedFn);
+
+    const promise = queue.add(() => Promise.resolve());
+    await queue.run();
+    await promise;
+
+    assert(subscribedFn.called);
+  });
+
+  it('.subscribeToAdd() should allow unsubscribing', async () => {
+    const queue = new PromiseQueue();
+
+    const subscribedFn = sinon.spy();
+    const unsubscribe = queue.subscribeToAdd(subscribedFn);
+    unsubscribe();
+
+    const promise = queue.add(() => Promise.resolve());
+    await queue.run();
+    await promise;
+
+    assert(!subscribedFn.called);
   });
 });

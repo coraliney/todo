@@ -1,6 +1,6 @@
 // @flow
 import path from 'path';
-import type {FileSystem} from '@parcel/fs';
+import type {FileSystem} from '@parcel/types';
 import {fuzzySearch} from './schema';
 import {relativePath} from './path';
 import {resolveConfig} from './config';
@@ -42,6 +42,8 @@ export async function findAlternativeNodeModules(
               potentialModules.push(...orgDirContent.map(i => `${item}/${i}`));
             }),
           );
+        } else {
+          potentialModules.push(...modules);
         }
       }
     } catch (err) {
@@ -139,5 +141,5 @@ export async function findAlternativeFiles(
     });
   }
 
-  return fuzzySearch(potentialFiles, fileSpecifier).slice(0, 2);
+  return fuzzySearch(potentialFiles.sort(), fileSpecifier).slice(0, 2);
 }

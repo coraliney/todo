@@ -17,18 +17,29 @@ import Transformation, {
   type TransformationOpts,
   type TransformationResult,
 } from './Transformation';
-import {reportWorker} from './ReporterRunner';
-import PackagerRunner, {type PackageRequestResult} from './PackagerRunner';
+import {reportWorker, report} from './ReporterRunner';
+import PackagerRunner, {type RunPackagerRunnerResult} from './PackagerRunner';
 import Validation, {type ValidationOpts} from './Validation';
 import ParcelConfig from './ParcelConfig';
-import {registerCoreWithSerializer} from './utils';
+import {registerCoreWithSerializer} from './registerCoreWithSerializer';
 import {clearBuildCaches} from './buildCache';
 import {init as initSourcemaps} from '@parcel/source-map';
-import {init as initHash} from '@parcel/hash';
+import {init as initRust} from '@parcel/rust';
+import WorkerFarm from '@parcel/workers';
+import {setFeatureFlags} from '@parcel/feature-flags';
 
 import '@parcel/cache'; // register with serializer
 import '@parcel/package-manager';
 import '@parcel/fs';
+
+// $FlowFixMe
+if (process.env.PARCEL_BUILD_REPL && process.browser) {
+  /* eslint-disable import/no-extraneous-dependencies, monorepo/no-internal-import */
+  require('@parcel/repl/src/parcel/BrowserPackageManager.js');
+  // $FlowFixMe
+  require('@parcel/repl/src/parcel/ExtendedMemoryFS.js');
+  /* eslint-enable import/no-extraneous-dependencies, monorepo/no-internal-import */
+}
 
 registerCoreWithSerializer();
 
@@ -68,6 +79,9 @@ async function loadConfig(cachePath, options) {
   );
   config = new ParcelConfig(processedConfig, options);
   parcelConfigCache.set(cachePath, config);
+
+  setFeatureFlags(options.featureFlags);
+
   return config;
 }
 
@@ -128,7 +142,7 @@ export async function runPackage(
     invalidDevDeps: Array<DevDepSpecifier>,
     previousInvalidations: Array<RequestInvalidation>,
   |},
-): Promise<PackageRequestResult> {
+): Promise<RunPackagerRunnerResult> {
   let bundleGraph = workerApi.getSharedReference(bundleGraphReference);
   invariant(bundleGraph instanceof BundleGraph);
   let options = loadOptions(optionsRef, workerApi);
@@ -137,7 +151,7 @@ export async function runPackage(
   let runner = new PackagerRunner({
     config: parcelConfig,
     options,
-    report: reportWorker.bind(null, workerApi),
+    report: WorkerFarm.isWorker() ? reportWorker.bind(null, workerApi) : report,
     previousDevDeps,
     previousInvalidations,
   });
@@ -147,7 +161,7 @@ export async function runPackage(
 
 export async function childInit() {
   await initSourcemaps;
-  await initHash;
+  await initRust?.();
 }
 
 const PKG_RE =
