@@ -749,17 +749,18 @@ function visaUppdrag() {
             animals.appendChild(spanTag);
             animals.appendChild(deleteIcon); //lägger till min ikon från bootstrap, i animals
         }
-        spanTag.addEventListener("click", ()=>{
+        animals.addEventListener("click", ()=>{
             changeStatus(animals, todo[i]);
         }); //vi har gjort en addeventlistener som väntar/lyssnar på animals får ett klick där ett funktionsanrop påbörjas. Vill hämta variabler och position (i), från loopen så har vi gjort en anonym funktion.
-        deleteIcon.addEventListener("click", ()=>{
+        deleteIcon.addEventListener("click", (e)=>{
+            e.stopPropagation();
             deleteUppdrag(i);
         });
     }
 }
-function deleteUppdrag(deleteRow) {
+function deleteUppdrag(item) {
     //delete-funktion. använder sig av i för att splica det objekt jag tar bort.
-    for(let i = 0; i < todo.length; i++)if (i === deleteRow) todo.splice(i, 1);
+    todo = todo.filter((t)=>t !== item);
     visaUppdrag(); //är min loop.
 }
 function changeStatus(liItemAnimals, listPositioni) {

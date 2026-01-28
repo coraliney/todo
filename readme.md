@@ -31,5 +31,4 @@ Clone or download the repository, and install in your terminal:
 git clone <https://github.com/coraliney/todo.git>
 cd <project-folder-name>
 npm install
-npm run build-css
-npm start
+npm run dev
