@@ -1,0 +1,16 @@
+#klarLista {
+  background-color: green;
+  border: 2px solid gray;
+}
+
+#listan {
+  background-color: red;
+  border: 2px solid gray;
+}
+
+.flexar {
+  justify-content: space-between;
+  padding: 2px;
+  display: flex;
+}
+/*# sourceMappingURL=todo.47ca9330.css.map */

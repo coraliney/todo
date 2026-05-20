@@ -1,15 +1,17 @@
-#klarLista {
+/* #klarLista {
   border: 2px solid gray;
   background-color: green;
+  color: white;
 }
 
 #listan {
   border: 2px solid gray;
   background-color: red;
+  color: white;
 }
 
 .flexar {
   display: flex;
   justify-content: space-between;
   padding: 2px;
-}/*# sourceMappingURL=main.css.map */
+}/*# sourceMappingURL=main.css.map */ 

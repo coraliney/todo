@@ -1,27 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link href="./scss/main.scss" rel="stylesheet" />
-    <!--länk till scss-->
-    <script defer src="./js/index.js" type="module"></script>
-    <!--länk till js-->
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css"
-    />
-    <!--bootstraps ikoner, css-->
-
-    <title>My todo</title>
-    <!--titel på sidan-->
-  </head>
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="./scss/main.scss" rel="stylesheet" />
+  <script defer src="./js/index.js" type="module"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css" />
+  <title>Todos</title>
+</head>
   <body>
-    <h1>What do you want to do?</h1>
+<h1>Today's tasks<span class="dot">.</span></h1>
     <!--titel på listan-->
     <div id="container">
       <!--container-->
+      <div class="add-todo">
+        <input type="text" id="todoInput" placeholder="Write here or chose something" />
+        <button id="addTodoBtn">Add</button>
+      </div>
       <ul id="listan"></ul>
       <!--listan-->
     </div>

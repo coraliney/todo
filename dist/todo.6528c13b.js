@@ -716,45 +716,54 @@ function hmrAccept(bundle /*: ParcelRequire */ , id /*: string */ ) {
 },{}],"6kb64":[function(require,module,exports,__globalThis) {
 var _class = require("./modules/class");
 let todo = []; //min lista/array
-todo.push(new (0, _class.Djur)("feed animal", false, "zebra")); //listans innehåll; mina objekt med klass- trycks in i listan
-todo.push(new (0, _class.Djur)("pet animal", true, "lejon")); //listans innehåll; mina objekt med klass- trycks in i listan
-todo.push(new (0, _class.Djur)("walk with animal", false, "antilop")); //listans innehåll; mina objekt klass- trycks in i listan
-todo.push(new (0, _class.Djur)("run with animals", false, "skalpadda")); //listans innehåll; mina objekt klass- trycks in i listan
+todo.push(new (0, _class.Adventures)("Climb Kilimanjaro", true, "travel")); //listans innehåll; mina objekt med klass- trycks in i listan
+todo.push(new (0, _class.Adventures)("Visit the 'Seven wonders'", false, "travel")); //listans innehåll; mina objekt med klass- trycks in i listan
+todo.push(new (0, _class.Adventures)("Learn a new skill", false, "travel")); //listans innehåll; mina objekt med klass- trycks in i listan
 let container = document.getElementById("container"); //hämtar min div, från html:n för att lägga "klarlista" i min div
 let listan = document.getElementById("listan"); //detta är min ul från html:n som jag hämtat - false
 let klarLista = document.createElement("ul"); //nytt element skapat i js. rollas i loopen sedan - true
 klarLista.id = "klarLista";
 container.appendChild(klarLista); //containern är förälder, klarListan barnet. Berättar var den ska placeras- barnet alltså.
+//input och knapp för egen todo
+let todoInput = document.getElementById("todoInput"); //hämtar input
+let addTodoBtn = document.getElementById("addTodoBtn"); //hämtar knapp
 function visaUppdrag() {
     listan.innerHTML = "";
     klarLista.innerHTML = ""; //dessa två är för att inte loopas om för mycket, tömmer innehållet så att den bara en loopas en gång.. Ser innehållet från en loop menar jag.
     for(let i = 0; i < todo.length; i++){
         //detta är min loop
-        let animals = document.createElement("li"); //här i min loop har jag skapat en li-variabel. Är en lokal variabel
-        animals.className = "flexar"; //gör en klass till animals/elementet som heter flexar.
+        let adventure = document.createElement("li"); //här i min loop har jag skapat en li-variabel. Är en lokal variabel
+        adventure.className = "flexar"; //gör en klass till adventure/elementet som heter flexar.
         let spanTag = document.createElement("span"); //skapat ett span-element och döpt till spanTag.
         let deleteIcon = document.createElement("i"); //gör en variabel, deleteIcon, för ett nytt element av i/ett i-element
-        deleteIcon.className = "bi bi-stars";
+        deleteIcon.className = "bi bi-trash3";
+        // Sätt alltid texten
+        spanTag.innerText = todo[i].task;
+        // Lägg alltid till span och ikon
+        adventure.appendChild(spanTag);
+        adventure.appendChild(deleteIcon);
         if (todo[i].klar === true) {
             //om mitt objekt har "klar" "true"
-            spanTag.innerHTML = todo[i].task; //så ska den prutta ut det som står i task
-            klarLista.appendChild(animals); //säger åt klarlistan att lägga till ett barn som är min "li" dvs animals
-            animals.appendChild(spanTag); // appendChild är vårt sätt att berätta för DOM att visa grejerna vart de ska ligga i DOM.
-            animals.appendChild(deleteIcon); //lägger till min ikon från bootstrap, i animals
-        }
+            adventure.classList.add("klar");
+            klarLista.appendChild(adventure);
+        } else listan.appendChild(adventure);
+        spanTag.innerText = todo[i].task; //så ska den prutta ut det som står i task
+        /*   klarLista.appendChild(adventure); */ //säger åt klarlistan att lägga till ett barn som är min "li" dvs adventure
+        adventure.appendChild(spanTag); // appendChild är vårt sätt att berätta för DOM att visa grejerna vart de ska ligga i DOM.
+        adventure.appendChild(deleteIcon); //lägger till min ikon från bootstrap, i adventure
         if (todo[i].klar === false) {
             //om mitt objekt har "klar" "false"
             spanTag.innerText = todo[i].task; //så ska den prutta ut det som står i task
-            listan.appendChild(animals); //säger åt listan att lägga till ett barn som är min "li" dvs animals
-            animals.appendChild(spanTag);
-            animals.appendChild(deleteIcon); //lägger till min ikon från bootstrap, i animals
+            listan.appendChild(adventure); //säger åt listan att lägga till ett barn som är min "li" dvs adventure
+            adventure.appendChild(spanTag);
+            adventure.appendChild(deleteIcon); //lägger till min ikon från bootstrap, i adventure
         }
-        animals.addEventListener("click", ()=>{
-            changeStatus(animals, todo[i]);
-        }); //vi har gjort en addeventlistener som väntar/lyssnar på animals får ett klick där ett funktionsanrop påbörjas. Vill hämta variabler och position (i), från loopen så har vi gjort en anonym funktion.
+        adventure.addEventListener("click", ()=>{
+            changeStatus(adventure, todo[i]);
+        }); //vi har gjort en addeventlistener som väntar/lyssnar på adventure får ett klick där ett funktionsanrop påbörjas. Vill hämta variabler och position (i), från loopen så har vi gjort en anonym funktion.
         deleteIcon.addEventListener("click", (e)=>{
             e.stopPropagation();
-            deleteUppdrag(i);
+            deleteUppdrag(todo[i]); // FIX: skickar objektet istället för index
         });
     }
 }
@@ -763,25 +772,39 @@ function deleteUppdrag(item) {
     todo = todo.filter((t)=>t !== item);
     visaUppdrag(); //är min loop.
 }
-function changeStatus(liItemAnimals, listPositioni) {
+function changeStatus(liItemAdventure, listPositioni) {
     if (listPositioni.klar === true) {
         //om den har klar true så ska listpunkten flyttas från klar till inte klar
-        listan.appendChild(liItemAnimals); //byter förälder så att säga, till listan från klarlista.
+        listan.appendChild(liItemAdventure); //byter förälder så att säga, till listan från klarlista.
         listPositioni.klar = false; //byter boolean/värde från true till false.
     } else {
-        klarLista.appendChild(liItemAnimals);
+        klarLista.appendChild(liItemAdventure);
         listPositioni.klar = true;
     }
     visaUppdrag(); //är min loop.
 }
+//funktion för att lägga till egen todo
+function addNewTodo() {
+    let text = todoInput.value.trim();
+    if (text === "") return;
+    todo.push(new (0, _class.Adventures)(text, false, "egen")); //ny todo startar som ej klar/röd
+    todoInput.value = "";
+    visaUppdrag();
+}
+//klick på knapp
+addTodoBtn.addEventListener("click", addNewTodo);
+//Enter funkar i input
+todoInput.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") addNewTodo();
+});
 visaUppdrag(); //är min loop.
 
 },{"./modules/class":"hsBUY"}],"hsBUY":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
-parcelHelpers.export(exports, "Djur", ()=>Djur);
-class Djur {
-    //skapar en klass (mall) som heter djur. Klassnamn börjar med stor bokstav//
+parcelHelpers.export(exports, "Adventures", ()=>Adventures);
+class Adventures {
+    //skapar en klass (mall) som heter Adventures. Klassnamn börjar med stor bokstav//
     constructor(uppdrag, klar, art){
         //konstruktor
         this.task = uppdrag; //behöver inte ändra task. högersida refererar uppåt.
